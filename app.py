@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file
 from PIL import Image, ImageDraw, ImageFont
 import os
 import uuid
@@ -82,7 +82,7 @@ def generate_image():
     filepath = os.path.join(FOLDER, filename)
     img.convert("RGB").save(filepath)
 
-    return jsonify({"url": request.host_url.rstrip("/") + f"/images/{filename}"})
+    return request.host_url.rstrip("/") + f"/images/{filename}"
 
 @app.route("/images/<filename>")
 def serve_image(filename):
