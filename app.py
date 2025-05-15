@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file, Response
 from PIL import Image, ImageDraw, ImageFont
 import os
 import uuid
@@ -36,29 +36,29 @@ def generate_image():
     font_path = "NotoSansHebrew-Regular.ttf"
     font = ImageFont.truetype(font_path, font_size)
 
-    # חישוב גודל המלל
     bbox = draw.textbbox((0, 0), text, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
 
-    # גודל מסגרת שחורה + ריווח
     padding = 40
     box_w = text_w + padding * 2
     box_h = text_h + padding * 2
     box_x = (1080 - box_w) / 2
-    box_y = 360  # מעלה את המסגרת משמעותית
+    box_y = 360
 
-    # יצירת שכבת אלפא למסגרת שקופה
     img = img.convert("RGBA")
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
     overlay_draw.rectangle(
         [(box_x, box_y), (box_x + box_w, box_y + box_h)],
-        fill=(0, 0, 0, 180)  # שחור עם שקיפות (0–255)
+        fill=(0, 0, 0, 180)
+    )
+    overlay_draw.rectangle(
+        [(0, 950), (1080, 1080)],
+        fill=(0, 0, 0, 220)
     )
     img = Image.alpha_composite(img, overlay)
 
-    # ציור הטקסט עם הדגשה
     draw = ImageDraw.Draw(img)
     draw.text(
         ((1080 - text_w) / 2, box_y + padding // 2),
@@ -71,7 +71,6 @@ def generate_image():
         stroke_fill="black"
     )
 
-    # הוספת הלוגו בתחתית התמונה
     try:
         logo = Image.open(LOGO_PATH).convert("RGBA")
         logo_width = 200
@@ -83,12 +82,12 @@ def generate_image():
     except Exception as e:
         print(f"Failed to add logo: {e}")
 
-    # שמירה
     filename = f"{uuid.uuid4().hex}.png"
     filepath = os.path.join(FOLDER, filename)
     img.convert("RGB").save(filepath)
 
-    return jsonify({"url": request.host_url.rstrip("/") + f"/images/{filename}"})
+    url = request.host_url.replace("http://", "https://").rstrip("/") + f"/images/{filename}"
+    return Response(url, mimetype="text/plain")
 
 @app.route("/images/<filename>")
 def serve_image(filename):
