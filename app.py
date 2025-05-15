@@ -1,92 +1,74 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, send_file
 from PIL import Image, ImageDraw, ImageFont
+import requests
+from io import BytesIO
 import os
 import uuid
-import glob
-import time
+import datetime
 
 app = Flask(__name__)
-FOLDER = "images"
-os.makedirs(FOLDER, exist_ok=True)
 
 @app.route("/generate", methods=["POST"])
 def generate_image():
     data = request.json
     text = data.get("text", "אין טקסט")
-    font_size = int(data.get("font_size", 60))
-    text_color = data.get("color", "#ffffff")
-    bg_color = data.get("bg_color", "#000000")
     image_url = data.get("image_url")
+    font_size = int(data.get("font_size", 60))
+    color = data.get("color", "#ffffff")
 
-    img = Image.new("RGB", (1080, 1080), color=bg_color)
+    # הורדת תמונת הרקע
+    response = requests.get(image_url)
+    background = Image.open(BytesIO(response.content)).convert("RGBA")
+    
+    # יצירת שכבת טקסט שקופה
+    txt_layer = Image.new('RGBA', background.size, (255, 255, 255, 0))
+    draw = ImageDraw.Draw(txt_layer)
 
-    if image_url:
-        try:
-            from io import BytesIO
-            import requests
-            response = requests.get(image_url)
-            background = Image.open(BytesIO(response.content)).resize((1080, 1080)).convert("RGB")
-            img.paste(background)
-        except:
-            pass
+    # טעינת הפונט
+    font = ImageFont.truetype("NotoSansHebrew-Regular.ttf", font_size)
 
-    draw = ImageDraw.Draw(img)
-    font_path = "NotoSansHebrew-Regular.ttf"
-    font = ImageFont.truetype(font_path, font_size)
+    # חישוב מיקום הטקסט
+    text_bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_height = text_bbox[3] - text_bbox[1]
+    text_x = (background.width - text_width) / 2
+    text_y = (background.height - text_height) / 2 - 20
 
-    # חישוב גודל המלל
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-
-    # גודל מסגרת שחורה + ריווח
+    # ציור מלבן שחור חצי שקוף
     padding = 40
-    box_w = text_w + padding * 2
-    box_h = text_h + padding * 2
-    box_x = (1080 - box_w) / 2
-    box_y = (1080 - box_h) / 2
-
-    # יצירת שכבת אלפא למסגרת שקופה
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    overlay_draw = ImageDraw.Draw(overlay)
-    overlay_draw.rectangle(
-        [(box_x, box_y), (box_x + box_w, box_y + box_h)],
-        fill=(0, 0, 0, 180)  # שחור עם שקיפות (0–255)
-    )
-    img = Image.alpha_composite(img.convert("RGBA"), overlay)
+    rect_x0 = text_x - padding
+    rect_y0 = text_y - padding / 2
+    rect_x1 = text_x + text_width + padding
+    rect_y1 = text_y + text_height + padding / 2
+    draw.rectangle([rect_x0, rect_y0, rect_x1, rect_y1], fill=(0, 0, 0, 180))
 
     # ציור הטקסט
-    draw = ImageDraw.Draw(img)
-    draw.text(
-        ((1080 - text_w) / 2, (1080 - text_h) / 2),
-        text,
-        fill=text_color,
-        font=font,
-        align="center",
-        direction="rtl"
-    )
+    draw.text((text_x, text_y), text, font=font, fill=color)
 
-    # שמירה
-    filename = f"{uuid.uuid4().hex}.png"
-    filepath = os.path.join(FOLDER, filename)
-    img.convert("RGB").save(filepath)
+    # הוספת לוגו
+    logo = Image.open("Perfect1-Logo-WhitePerfect1.png").convert("RGBA")
+    logo_width = 180
+    ratio = logo_width / logo.width
+    logo = logo.resize((logo_width, int(logo.height * ratio)))
+    logo_x = (background.width - logo.width) // 2
+    logo_y = background.height - logo.height - 40
+    txt_layer.paste(logo, (logo_x, logo_y), mask=logo)
 
-    return jsonify({"url": request.host_url.rstrip("/") + f"/images/{filename}"})
+    # מיזוג שכבות
+    final = Image.alpha_composite(background, txt_layer).convert("RGB")
 
-@app.route("/images/<filename>")
-def serve_image(filename):
-    return send_file(os.path.join(FOLDER, filename), mimetype="image/png")
+    # שמירה עם שם קובץ ייחודי למחיקה עתידית
+    filename = f"output_{uuid.uuid4().hex}.jpg"
+    filepath = os.path.join("generated", filename)
+    final.save(filepath, format="JPEG")
 
-@app.before_request
-def cleanup_old_images():
-    now = time.time()
-    for file in glob.glob(f"{FOLDER}/*.png"):
-        if os.path.isfile(file) and (now - os.path.getmtime(file)) > 7 * 86400:
-            try:
-                os.remove(file)
-            except:
-                pass
+    return {"url": request.host_url + f"generated/{filename}"}
+
+@app.route("/generated/<filename>")
+def serve_generated_image(filename):
+    return send_file(os.path.join("generated", filename), mimetype="image/jpeg")
 
 if __name__ == "__main__":
+    os.makedirs("generated", exist_ok=True)
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
