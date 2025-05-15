@@ -46,7 +46,7 @@ def generate_image():
     box_w = text_w + padding * 2
     box_h = text_h + padding * 2
     box_x = (1080 - box_w) / 2
-    box_y = (1080 - box_h) / 2 - 50  # מעלה את המסגרת מעט
+    box_y = 360  # מעלה את המסגרת משמעותית
 
     # יצירת שכבת אלפא למסגרת שקופה
     img = img.convert("RGBA")
@@ -61,7 +61,7 @@ def generate_image():
     # ציור הטקסט עם הדגשה
     draw = ImageDraw.Draw(img)
     draw.text(
-        ((1080 - text_w) / 2, (1080 - text_h) / 2 - 50),
+        ((1080 - text_w) / 2, box_y + padding // 2),
         text,
         fill=text_color,
         font=font,
@@ -79,7 +79,7 @@ def generate_image():
         logo = logo.resize((logo_width, int(logo.height * ratio)))
         logo_x = (1080 - logo.width) // 2
         logo_y = 1080 - logo.height - 30
-        img.alpha_composite(logo, (logo_x, logo_y))
+        img.paste(logo, (logo_x, logo_y), logo)
     except Exception as e:
         print(f"Failed to add logo: {e}")
 
