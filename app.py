@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, send_file
 from PIL import Image, ImageDraw, ImageFont
 import os
 
@@ -12,23 +12,27 @@ def generate_image():
     color = data.get("color", "#000000")
     bg_color = data.get("bg_color", "#ffffff")
 
+    # יצירת תמונה
     img = Image.new("RGB", (1080, 1080), color=bg_color)
     draw = ImageDraw.Draw(img)
 
     font_path = "NotoSansHebrew-Regular.ttf"
     font = ImageFont.truetype(font_path, font_size)
 
+    # חישוב מיקום הטקסט
     bbox = draw.textbbox((0, 0), text, font=font)
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
 
     draw.text(((1080 - w) / 2, (1080 - h) / 2), text, fill=color, font=font, align="right")
 
+    # שמירת התמונה
     output_path = "output.png"
     img.save(output_path)
 
-    file_url = request.host_url.rstrip("/") + "/output.png"
-    return jsonify({"url": file_url})
+    # יצירת קישור מאובטח (HTTPS) והחזרה כטקסט פשוט
+    file_url = request.host_url.replace("http://", "https://").rstrip("/") + "/output.png"
+    return file_url, 200, {"Content-Type": "text/plain"}
 
 @app.route("/output.png")
 def serve_image():
