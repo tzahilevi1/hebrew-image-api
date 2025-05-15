@@ -11,7 +11,7 @@ app = Flask(__name__)
 FOLDER = "images"
 os.makedirs(FOLDER, exist_ok=True)
 
-LOGO_PATH = "Perfect1-Logo-WhitePerfect1.webp"
+LOGO_PATH = "LOGO_PATH = "Perfect1-Logo-WhitePerfect1 (1).webp"
 
 @app.route("/generate", methods=["POST"])
 def generate_image():
