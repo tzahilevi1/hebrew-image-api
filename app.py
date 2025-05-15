@@ -6,24 +6,20 @@ import glob
 import time
 
 app = Flask(__name__)
-
 FOLDER = "images"
-os.makedirs(FOLDER, exist_ok=True)  # יצירת תקייה אם לא קיימת
+os.makedirs(FOLDER, exist_ok=True)
 
 @app.route("/generate", methods=["POST"])
 def generate_image():
-    # קבלת נתונים מהבקשה
     data = request.json
     text = data.get("text", "אין טקסט")
     font_size = int(data.get("font_size", 60))
-    color = data.get("color", "#ffffff")  # לבן כברירת מחדל
+    text_color = data.get("color", "#ffffff")
     bg_color = data.get("bg_color", "#000000")
-    image_url = data.get("image_url")  # אפשרי, למקרה שתרצה להשתמש כרקע
+    image_url = data.get("image_url")
 
-    # יצירת תמונה חדשה
     img = Image.new("RGB", (1080, 1080), color=bg_color)
 
-    # אם הוזן רקע מתמונה – נטען ונשים אותו
     if image_url:
         try:
             from io import BytesIO
@@ -32,36 +28,55 @@ def generate_image():
             background = Image.open(BytesIO(response.content)).resize((1080, 1080)).convert("RGB")
             img.paste(background)
         except:
-            pass  # אם נכשל, נמשיך עם רקע רגיל
+            pass
 
     draw = ImageDraw.Draw(img)
     font_path = "NotoSansHebrew-Regular.ttf"
     font = ImageFont.truetype(font_path, font_size)
 
-    # חישוב מיקום מרכזי למלל
+    # חישוב גודל המלל
     bbox = draw.textbbox((0, 0), text, font=font)
-    w = bbox[2] - bbox[0]
-    h = bbox[3] - bbox[1]
-    x = (1080 - w) / 2
-    y = (1080 - h) / 2
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
 
-    draw.text((x, y), text, fill=color, font=font, align="right", direction="rtl")
+    # גודל מסגרת שחורה + ריווח
+    padding = 40
+    box_w = text_w + padding * 2
+    box_h = text_h + padding * 2
+    box_x = (1080 - box_w) / 2
+    box_y = (1080 - box_h) / 2
 
-    # יצירת שם קובץ ייחודי
+    # יצירת שכבת אלפא למסגרת שקופה
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    overlay_draw = ImageDraw.Draw(overlay)
+    overlay_draw.rectangle(
+        [(box_x, box_y), (box_x + box_w, box_y + box_h)],
+        fill=(0, 0, 0, 180)  # שחור עם שקיפות (0–255)
+    )
+    img = Image.alpha_composite(img.convert("RGBA"), overlay)
+
+    # ציור הטקסט
+    draw = ImageDraw.Draw(img)
+    draw.text(
+        ((1080 - text_w) / 2, (1080 - text_h) / 2),
+        text,
+        fill=text_color,
+        font=font,
+        align="center",
+        direction="rtl"
+    )
+
+    # שמירה
     filename = f"{uuid.uuid4().hex}.png"
     filepath = os.path.join(FOLDER, filename)
-    img.save(filepath)
+    img.convert("RGB").save(filepath)
 
-    # החזרת קישור לקובץ
-    file_url = request.host_url.rstrip("/") + f"/images/{filename}"
-    return jsonify({"url": file_url})
+    return jsonify({"url": request.host_url.rstrip("/") + f"/images/{filename}"})
 
 @app.route("/images/<filename>")
 def serve_image(filename):
-    filepath = os.path.join(FOLDER, filename)
-    return send_file(filepath, mimetype="image/png")
+    return send_file(os.path.join(FOLDER, filename), mimetype="image/png")
 
-# קריאה פנימית לניקוי קבצים ישנים – מחיקת קבצים בני יותר מ־7 ימים
 @app.before_request
 def cleanup_old_images():
     now = time.time()
