@@ -32,10 +32,10 @@ def generate_image():
         except:
             pass
 
-    draw = ImageDraw.Draw(img)
     font_path = "NotoSansHebrew-Regular.ttf"
     font = ImageFont.truetype(font_path, font_size)
 
+    draw = ImageDraw.Draw(img)
     bbox = draw.textbbox((0, 0), text, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
@@ -78,13 +78,13 @@ def generate_image():
         logo = logo.resize((logo_width, int(logo.height * ratio)))
         logo_x = (1080 - logo.width) // 2
         logo_y = 1080 - logo.height - 30
-        img.paste(logo, (logo_x, logo_y), logo)
+        img.alpha_composite(logo, (logo_x, logo_y))
     except Exception as e:
         print(f"Failed to add logo: {e}")
 
     filename = f"{uuid.uuid4().hex}.png"
     filepath = os.path.join(FOLDER, filename)
-    img.convert("RGB").save(filepath)
+    img.save(filepath, format="PNG")
 
     url = request.host_url.replace("http://", "https://").rstrip("/") + f"/images/{filename}"
     return Response(url, mimetype="text/plain")
