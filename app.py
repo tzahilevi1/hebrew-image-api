@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file
+from flask import Flask, request, jsonify
 from PIL import Image, ImageDraw, ImageFont
 import os
 
@@ -18,7 +18,6 @@ def generate_image():
     font_path = "NotoSansHebrew-Regular.ttf"
     font = ImageFont.truetype(font_path, font_size)
 
-    # תיקון: חישוב גובה ורוחב לפי textbbox
     bbox = draw.textbbox((0, 0), text, font=font)
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
@@ -28,8 +27,14 @@ def generate_image():
     output_path = "output.png"
     img.save(output_path)
 
-    return send_file(output_path, mimetype="image/png")
+    # החזרת קישור ציבורי לקובץ
+    file_url = request.host_url.rstrip("/") + "/output.png"
+    return jsonify({"url": file_url})
+
+@app.route("/output.png")
+def serve_image():
+    return send_file("output.png", mimetype="image/png")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=port)
