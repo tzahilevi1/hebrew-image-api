@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from PIL import Image, ImageDraw, ImageFont
 import os
 
@@ -27,7 +27,6 @@ def generate_image():
     output_path = "output.png"
     img.save(output_path)
 
-    # החזרת קישור ציבורי לקובץ
     file_url = request.host_url.rstrip("/") + "/output.png"
     return jsonify({"url": file_url})
 
