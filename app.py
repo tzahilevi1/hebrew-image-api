@@ -11,7 +11,7 @@ app = Flask(__name__)
 FOLDER = "images"
 os.makedirs(FOLDER, exist_ok=True)
 
-LOGO_PATH = "Perfect1-Logo-WhitePerfect1.png"
+LOGO_PATH = "Perfect1-Logo-WhitePerfect1.webp"
 
 @app.route("/generate", methods=["POST"])
 def generate_image():
@@ -49,13 +49,14 @@ def generate_image():
     box_y = (1080 - box_h) / 2 - 50  # מעלה את המסגרת מעט
 
     # יצירת שכבת אלפא למסגרת שקופה
+    img = img.convert("RGBA")
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
     overlay_draw.rectangle(
         [(box_x, box_y), (box_x + box_w, box_y + box_h)],
         fill=(0, 0, 0, 180)  # שחור עם שקיפות (0–255)
     )
-    img = Image.alpha_composite(img.convert("RGBA"), overlay)
+    img = Image.alpha_composite(img, overlay)
 
     # ציור הטקסט עם הדגשה
     draw = ImageDraw.Draw(img)
@@ -78,9 +79,9 @@ def generate_image():
         logo = logo.resize((logo_width, int(logo.height * ratio)))
         logo_x = (1080 - logo.width) // 2
         logo_y = 1080 - logo.height - 30
-        img.paste(logo, (logo_x, logo_y), logo)
-    except:
-        pass
+        img.alpha_composite(logo, (logo_x, logo_y))
+    except Exception as e:
+        print(f"Failed to add logo: {e}")
 
     # שמירה
     filename = f"{uuid.uuid4().hex}.png"
