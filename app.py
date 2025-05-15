@@ -78,7 +78,7 @@ def generate_image():
         logo = logo.resize((logo_width, int(logo.height * ratio)))
         logo_x = (1080 - logo.width) // 2
         logo_y = 1080 - logo.height - 30
-        img.alpha_composite(logo, (logo_x, logo_y))
+        img.paste(logo, (logo_x, logo_y), mask=logo)
     except Exception as e:
         print(f"Failed to add logo: {e}")
 
