@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, Response
+from flask import Flask, request, send_file, jsonify
 from PIL import Image, ImageDraw, ImageFont
 import os
 import uuid
@@ -32,10 +32,10 @@ def generate_image():
         except:
             pass
 
+    draw = ImageDraw.Draw(img)
     font_path = "NotoSansHebrew-Regular.ttf"
     font = ImageFont.truetype(font_path, font_size)
 
-    draw = ImageDraw.Draw(img)
     bbox = draw.textbbox((0, 0), text, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
@@ -52,10 +52,6 @@ def generate_image():
     overlay_draw.rectangle(
         [(box_x, box_y), (box_x + box_w, box_y + box_h)],
         fill=(0, 0, 0, 180)
-    )
-    overlay_draw.rectangle(
-        [(0, 950), (1080, 1080)],
-        fill=(0, 0, 0, 220)
     )
     img = Image.alpha_composite(img, overlay)
 
@@ -78,16 +74,15 @@ def generate_image():
         logo = logo.resize((logo_width, int(logo.height * ratio)))
         logo_x = (1080 - logo.width) // 2
         logo_y = 1080 - logo.height - 30
-        img.paste(logo, (logo_x, logo_y), mask=logo)
+        img.paste(logo, (logo_x, logo_y), logo)
     except Exception as e:
         print(f"Failed to add logo: {e}")
 
     filename = f"{uuid.uuid4().hex}.png"
     filepath = os.path.join(FOLDER, filename)
-    img.save(filepath, format="PNG")
+    img.convert("RGB").save(filepath)
 
-    url = request.host_url.replace("http://", "https://").rstrip("/") + f"/images/{filename}"
-    return Response(url, mimetype="text/plain")
+    return jsonify({"url": request.host_url.rstrip("/") + f"/images/{filename}"})
 
 @app.route("/images/<filename>")
 def serve_image(filename):
